@@ -41,13 +41,35 @@ What do you get if you add up all of the invalid IDs?
 
 def main(filename):
     print("")
-    ranges=open(filename).readlines()
-    return 0
+    lines=open(filename).readlines()
+    ranges=[]
+    for l in lines:
+        l=l.strip()
+        ranges.extend(l.split(','))
+    print( ranges )
+    count=0
+    result=0
+    for r in ranges:
+        start_str,end_str = r.split('-')
+        start= int(start_str)
+        end=int(end_str)
+        #print ("range:",r,"size:", int(end)-int(start) )
+        for t in (range(start,end+1)):
+            id_str=str(t)
+            id_len=len(id_str)
+            if  id_len % 2 == 0:
+                if id_str[:int (id_len / 2)] == id_str[int(id_len / 2) : ]:
+                    count+=1
+                    print (id_str)
+                    result+=t
+
+    print("tested ",count)
+    return result
 
 # testing
 
-result = main("2025/2/test.txt")
+#result = main("2025/2/test.txt")
 #riddle
-#result = main("2025/2/riddle.txt")
+result = main("2025/2/riddle.txt")
 
 print ('Result: ',result)
