@@ -1,0 +1,6 @@
+[package]
+name = "rs-2-b"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
