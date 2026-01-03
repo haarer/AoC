@@ -1,4 +1,4 @@
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq,Clone, Copy)]
 enum ELEMENT {
     SOURCE,
     SPLITTER,
@@ -36,9 +36,13 @@ impl Puzzle {
         let mut first_line: Vec<ELEMENT> = vec![];
         let mut second_line: Vec<ELEMENT> = vec![];
 
+        let mut first_line_options: Vec<usize>=vec![];
+        let mut second_line_options: Vec<usize>=vec![];
+
         let mut lineit = contents.lines().into_iter();
 
         let mut beam_hit_splitter_count = 0;
+        let mut world_count=0;
 
         first_line = lineit
             .next()
@@ -52,12 +56,17 @@ impl Puzzle {
             .chars()
             .map(|x| char_2_element(x))
             .collect();
+
+        first_line_options=first_line.iter().map(|e| 0 ).collect(); // zero out
+        second_line_options=second_line.iter().map(|e| 0 ).collect(); // zero out
+
         loop {
             // do tachyon beam physics :)  second line depends only on first line
             for (pos, element) in first_line.iter().enumerate() {
                 match element {
                     SOURCE => {
                         second_line[pos] = BEAM; // source emits down beam
+                        second_line_options[pos]=1; // one world for source beam
                     }
                     SPLITTER => { // do nothing 
                     }
@@ -65,34 +74,53 @@ impl Puzzle {
                         if second_line[pos] == EMPTY {
                             // propagate any beam down to empty space
                             second_line[pos] = BEAM;
+                            second_line_options[pos]+=first_line_options[pos]; // add the number of worlds the beam is in to beams that might exist
                         } else if second_line[pos] == SPLITTER {
                             // except when it hits a splitter
                             // splitter creates beam left and right in same row
                             beam_hit_splitter_count += 1;
                             second_line[pos - 1] = BEAM; // propagate left beam from splitter down
                             second_line[pos + 1] = BEAM; // propagate right beam from splitter down
+
+                            second_line_options[pos-1]+=first_line_options[pos]; // add number of worlds to beams that might exist already
+                            second_line_options[pos+1]+=first_line_options[pos]; // add number of worlds to beams that might exist already
+                        } else if second_line[pos]== BEAM {
+                            second_line_options[pos]+=first_line_options[pos]; // add the number of worlds the beam is in to beams that might exist
+                            
                         }
+
                     }
 
                     _ => {}
                 }
             }
+            // count  beam paths coming from splitters in this line
+            let mut pc=0;
+            for opt in first_line_options.iter(){
+                    pc+=opt;               
+            }
+            world_count=pc;
+
             let line: String = first_line.iter().map(|e| element_2_char(&e)).collect();
-            println!("{}", line);
+            println!("{} : {}", line,pc);
+            
             //advance
             first_line = second_line;
+            first_line_options= second_line_options.clone();
+
             second_line = match lineit.next() {
                 Some(v) => v.chars().map(|x| char_2_element(x)).collect(),
                 None => {
                     break;
                 }
-            }
+            };
+            second_line_options=second_line.iter().map(|e| 0 ).collect(); // zero out
         }
 
         Puzzle {
             contents,
             result1: beam_hit_splitter_count,
-            result2: 0,
+            result2: world_count,
         }
     }
 
@@ -111,6 +139,7 @@ fn main() {
     puzzle.solve1();
     let elapsed = start.elapsed();
     println!("Result1: {}", puzzle.result1);
+    println!("Result2: {}", puzzle.result2);
     println!("Millis: {} ms", elapsed.as_millis());
 }
 /*
