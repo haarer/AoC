@@ -3,7 +3,7 @@ use itertools::Itertools; // cargo add itertools (for collect_tuple() )
 struct Puzzle {
     contents: String,
     result1: usize,
-    result2: usize,
+    result2: i64,
 }
 
 struct Distance {
@@ -89,6 +89,7 @@ impl Puzzle {
         let mut circuits: Vec<Vec<usize>> = vec![];
         let mut circuit_count = 0;
         let mut conn_count = 0;
+        let mut last_conn: Distance=Distance::new(0,0 ,0);
         for dist in distances {
             //check if points to be connected are not connected somehow, then make a new circuit
             if    points[dist.first_point_idx].in_circuit  == None
@@ -100,6 +101,7 @@ impl Puzzle {
                 println!("case 1 conn {} and {} to new circuit {}",dist.first_point_idx,dist.second_point_idx,circuit_count);
                 circuit_count += 1;
                 conn_count += 1;
+                last_conn=dist;
             } else if  points[dist.first_point_idx].in_circuit  != None
                     && points[dist.second_point_idx].in_circuit == None
             {
@@ -110,6 +112,7 @@ impl Puzzle {
                 println!("case 2 conn {} and {} to existing circuit {}",dist.first_point_idx,dist.second_point_idx,points[dist.first_point_idx].in_circuit.unwrap());
 
                 conn_count += 1;
+                last_conn=dist;
             } else if  points[dist.first_point_idx].in_circuit  == None
                     && points[dist.second_point_idx].in_circuit != None
             {
@@ -119,6 +122,7 @@ impl Puzzle {
                     .push(dist.first_point_idx); // add first point to circuit of second
                 println!("case 3 conn {} and {} to existing circuit {}",dist.first_point_idx,dist.second_point_idx,points[dist.second_point_idx].in_circuit.unwrap());
                 conn_count += 1;
+                last_conn=dist;
             }else if   points[dist.first_point_idx].in_circuit  != None
                     && points[dist.second_point_idx].in_circuit != None
                     && points[dist.first_point_idx].in_circuit != points[dist.second_point_idx].in_circuit {
@@ -139,6 +143,7 @@ impl Puzzle {
                 // put moved points into other circuit
                 circuits[points[dist.first_point_idx].in_circuit.unwrap()].append(&mut points_to_move);       
                 conn_count += 1;
+                last_conn=dist;
                 }else {
                 println!(
                     "case 5 {} and {} already connected to same circuits {} and {}",
@@ -151,16 +156,20 @@ impl Puzzle {
             }
 
             // else do nothing
-
-            if conn_count == 1000 {
-                break;
-            }
+            // verfummelt um 8b zu lösen
+            //if conn_count == 1000 {
+            //    break;
+            //}
         }
 
         for c in circuits.iter().enumerate(){
+            if c.1.len() > 0 {
             println!("circuit {} with {}",c.0,c.1.iter().map(|x|x.to_string()).join(","));
-
+            }
         }
+        println!("last connection was {} to {}",last_conn.first_point_idx,last_conn.second_point_idx);
+        println!("last connection x1 {} to  x2 {}",points[last_conn.first_point_idx].x,points[last_conn.second_point_idx].x);
+
 
         // sort circuits by size
         circuits.sort_by(|a, b| b.len().cmp(&a.len()));
@@ -169,7 +178,7 @@ impl Puzzle {
         Puzzle {
             contents,
             result1: circuits[0].len()*circuits[1].len()*circuits[2].len(),
-            result2: 0,
+            result2: points[last_conn.first_point_idx].x * points[last_conn.second_point_idx].x,
         }
     }
 
@@ -244,6 +253,16 @@ This process continues for a while, and the Elves are concerned that they don't 
 After making the ten shortest connections, there are 11 circuits: one circuit which contains 5 junction boxes, one circuit which contains 4 junction boxes, two circuits which contain 2 junction boxes each, and seven circuits which each contain a single junction box. Multiplying together the sizes of the three largest circuits (5, 4, and one of the circuits of size 2) produces 40.
 
 Your list contains many junction boxes; connect together the 1000 pairs of junction boxes which are closest together. Afterward, what do you get if you multiply together the sizes of the three largest circuits?
+
+
+
+--- Part Two ---
+
+The Elves were right; they definitely don't have enough extension cables. You'll need to keep connecting junction boxes together until they're all in one large circuit.
+
+Continuing the above example, the first connection which causes all of the junction boxes to form a single circuit is between the junction boxes at 216,146,977 and 117,168,530. The Elves need to know how far those junction boxes are from the wall so they can pick the right extension cable; multiplying the X coordinates of those two junction boxes (216 and 117) produces 25272.
+
+Continue connecting the closest unconnected pairs of junction boxes together until they're all in the same circuit. What do you get if you multiply together the X coordinates of the last two junction boxes you need to connect?
 
 
 */
