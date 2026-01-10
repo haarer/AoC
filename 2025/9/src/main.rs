@@ -1,5 +1,5 @@
-use geo::{BoundingRect, Contains, Coord, Covers, Rect};
-use geo_types::LineString;
+use geo::{BoundingRect, Contains, Coord};
+
 use itertools::Itertools; // cargo add itertools (for collect_tuple() )
 
 struct Polygon {
@@ -44,18 +44,6 @@ impl Polygon {
                 self.po.exterior()[idx_second].y as f64,
             ),
         );
-        let cent = rect.center();
-        // make a little smaller rect to test against
-        let testrect = geo::Rect::new(
-            (
-                cent.x - rect.width() / 2. + 0.1,
-                cent.y - rect.height() / 2. + 0.1,
-            ),
-            (
-                cent.x + rect.width() / 2. - 0.1,
-                cent.y + rect.height() / 2. - 0.1,
-            ),
-        );
 
         self.po.contains(&rect)
     }
@@ -80,9 +68,6 @@ struct Puzzle {
     poly: Polygon,
     result1: i64,
     result2: i64,
-    camera: Camera2D,
-    zoom_level: f32,
-    offset: Vec2,
 }
 
 impl Puzzle {
@@ -113,8 +98,6 @@ impl Puzzle {
         let mut max_p2 = 0;
 
         let mut max_area_strict = 0.;
-        let mut max_p1_strict = 0;
-        let mut max_p2_strict = 0;
 
         for first_idx in 0..poly.len() - 1 {
             for second_idx in second_idx_start..poly.len() {
@@ -125,8 +108,6 @@ impl Puzzle {
                     // but do the expensive check only if area is larger
                     if poly.check_point_inside(first_idx, second_idx) {
                         max_area_strict = area;
-                        max_p1_strict = first_idx;
-                        max_p2_strict = second_idx;
                         print!(
                             "testing {}({},{}) against {}({},{}) ",
                             first_idx,
@@ -138,7 +119,6 @@ impl Puzzle {
                         );
                         println!(" --> inside, area={}", area);
                     } else {
-                        //println!(" --> not inside");
                         continue;
                     }
                 }
@@ -161,103 +141,26 @@ impl Puzzle {
             poly,
             result1: 0,
             result2: 0,
-            camera: Camera2D::default(),
-            zoom_level: 1. / (bbox.max().x - bbox.min().x) as f32,
-            offset: vec2(0., 0.),
         }
     }
 
-    fn render(&mut self) {
-        if is_key_down(KeyCode::PageUp) {
-            self.zoom_level += 0.00001;
-            println!("zoom: {}", self.zoom_level);
-        }
-        if is_key_down(KeyCode::PageDown) {
-            if self.zoom_level > 0. {
-                self.zoom_level -= 0.00001;
-                println!("zoom: {}", self.zoom_level);
-            }
-        }
-        if is_key_down(KeyCode::Up) {
-            self.offset[1] += 0.01;
-        }
-        if is_key_down(KeyCode::Down) {
-            self.offset[1] -= 0.01;
-        }
-        if is_key_down(KeyCode::Left) {
-            self.offset[0] -= 0.01;
-        }
-        if is_key_down(KeyCode::Right) {
-            self.offset[0] += 0.01;
-        }
-        self.camera.zoom = vec2(self.zoom_level, self.zoom_level);
-        self.camera.offset = self.offset;
-        set_camera(&self.camera);
-        clear_background(DARKGRAY);
-        // bbox
-        let bbox = &self.poly.po.bounding_rect().unwrap();
-        draw_rectangle(
-            bbox.min().x as f32,
-            bbox.min().y as f32,
-            (bbox.max().x - bbox.min().x + 1.) as f32,
-            (bbox.max().y - bbox.min().y + 1.) as f32,
-            WHITE,
-        );
-
-        //draw poly points
-        for p in self.poly.po.exterior().points() {
-            draw_rectangle(p.x() as f32, p.y() as f32, 1., 1., RED);
-        }
-
-        // a grid
-        for x in 0..12 {
-            draw_line(x as f32, 0., x as f32, 12., 0.1, BLUE);
-        }
-        for y in 0..12 {
-            draw_line(0., y as f32, 12., y as f32, 0.1, BLUE);
-        }
-    }
 }
 
-use macroquad::prelude::*;
 use std::time::Instant;
 
-#[macroquad::main("MyGame")]
-async fn main() {
-    let po = geo::Polygon::new(
-        LineString::from(vec![
-            (7., 1.),
-            (11., 1.),
-            (11., 7.),
-            (9., 7.),
-            (9., 5.),
-            (2., 5.),
-            (2., 3.),
-            (7., 3.),
-        ]),
-        vec![],
-    );
-    let re = Rect::new((7., 1.), (11., 3.));
-    let re1 = Rect::new((11., 1.), (7., 3.));
-
-    assert!(po.contains(&re));
-    assert!(po.contains(&re1));
+fn main() {
 
     println!("AoC 2025 Riddle 9");
     //let filename = "../9/test.txt";
     let filename = "../9/riddle.txt";
 
     let start = Instant::now();
-    let mut puzzle = Puzzle::new(filename);
+    let puzzle = Puzzle::new(filename);
     let elapsed = start.elapsed();
     println!("Result1: {}", puzzle.result1);
     println!("Result2: {}", puzzle.result2);
     println!("Millis: {} ms", elapsed.as_millis());
 
-    loop {
-        puzzle.render();
-        next_frame().await;
-    }
 }
 /*
 --- Day 9: Movie Theater ---
