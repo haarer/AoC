@@ -50,7 +50,7 @@ impl Polygon {
 }
 
 // implement index trait for polygon to allow [] notation access points
-use std::ops::Index;
+use std::{ops::Index, usize};
 impl Index<usize> for Polygon {
     type Output = Coord<f64>;
 
@@ -69,6 +69,8 @@ struct Puzzle {
     result1: i64,
     result2: i64,
 }
+
+use rayon::prelude::*;
 
 impl Puzzle {
     fn new(filename: &str) -> Puzzle {
@@ -89,53 +91,45 @@ impl Puzzle {
             bbox.max().y
         );
 
-        // find max area of point pairs unconstrained (riddle part a)
-        let require_area_inside = true;
-
         let mut second_idx_start = 1;
-        let mut max_area = 0.;
-        let mut max_p1 = 0;
-        let mut max_p2 = 0;
 
-        let mut max_area_strict = 0.;
+        let mut pairs = vec![];
 
         for first_idx in 0..poly.len() - 1 {
             for second_idx in second_idx_start..poly.len() {
-                let area = compute_area(&poly[first_idx], &poly[second_idx]);
-
-                if require_area_inside && (area > max_area_strict) {
-                    // we must test if area is in side of polygon but its not - so skip this area
-                    // but do the expensive check only if area is larger
-                    if poly.check_point_inside(first_idx, second_idx) {
-                        max_area_strict = area;
-                        print!(
-                            "testing {}({},{}) against {}({},{}) ",
-                            first_idx,
-                            poly[first_idx].x,
-                            poly[first_idx].y,
-                            second_idx,
-                            poly[second_idx].x,
-                            poly[second_idx].y,
-                        );
-                        println!(" --> inside, area={}", area);
-                    } else {
-                        continue;
-                    }
-                }
-                if area > max_area {
-                    max_area = area;
-                    max_p1 = first_idx;
-                    max_p2 = second_idx;
-                }
+                pairs.push((first_idx, second_idx));
             }
             second_idx_start += 1;
         }
-        println!(
-            "max area is {} from p1({},{}) and p2({},{})",
-            max_area, poly[max_p1].x, poly[max_p1].y, poly[max_p2].x, poly[max_p2].y,
-        );
 
-        // find max area
+        let closure_max_area = |accu: f64, (first_idx, second_idx): &(usize, usize)| {
+            let area = compute_area(&poly[*first_idx], &poly[*second_idx]);
+            if area > accu { area } else { accu }
+        };
+        // parallel filtering of pairs, contexual update of max_area
+        let maxarea = pairs
+            .par_iter()
+            .fold(|| 0., closure_max_area)
+            .reduce(|| 0., |a, b| if a > b { a } else { b });
+
+        println!("max area is {}", maxarea);
+
+        let closure_max_area_strict = |accu: f64, (first_idx, second_idx): &(usize, usize)| {
+            let area = compute_area(&poly[*first_idx], &poly[*second_idx]);
+            if area > accu && poly.check_point_inside(*first_idx, *second_idx) {
+                area
+            } else {
+                accu
+            }
+        };
+
+        // parallel filtering of pairs inside polygon, contexual update of max_area_strict
+        let max_area_strict = pairs
+            .par_iter()
+            .fold(|| 0., closure_max_area_strict)
+            .reduce(|| 0., |a, b| if a > b { a } else { b });
+
+        println!("max area strict is {}", max_area_strict);
 
         Puzzle {
             poly,
@@ -143,13 +137,11 @@ impl Puzzle {
             result2: 0,
         }
     }
-
 }
 
 use std::time::Instant;
 
 fn main() {
-
     println!("AoC 2025 Riddle 9");
     //let filename = "../9/test.txt";
     let filename = "../9/riddle.txt";
@@ -160,7 +152,6 @@ fn main() {
     println!("Result1: {}", puzzle.result1);
     println!("Result2: {}", puzzle.result2);
     println!("Millis: {} ms", elapsed.as_millis());
-
 }
 /*
 --- Day 9: Movie Theater ---
