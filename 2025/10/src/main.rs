@@ -1,10 +1,49 @@
-use itertools::Itertools; // cargo add itertools (for collect_tuple() )
+
 use regex::Regex; // cargo add regex (for parsing)
 
+fn gen_pairs(count: usize) -> Vec<(usize, usize)> {
+    let mut second_idx_start = 1;
+
+    let mut pairs = vec![];
+
+    for first_idx in 0..count - 1 {
+        for second_idx in second_idx_start..count {
+            pairs.push((first_idx, second_idx));
+        }
+        second_idx_start += 1;
+    }
+    pairs
+}
+
+fn gen_2hochn_perm(count: usize) -> Vec<Vec<usize>> {
+    let mut output: Vec<Vec<usize>> = vec![];
+    for i in 0..2_usize.pow(count as u32) {
+        let mut bitvec: Vec<usize> = vec![];
+        for bit in 0..count {
+            let t = (i >> bit) & 0x000001;
+            if t > 0 {
+                bitvec.push(bit);
+            }
+        }
+        output.push(bitvec);
+    }
+
+    output
+}
+fn xor_bitline(a: [bool; 16], b: [bool; 16]) -> [bool; 16] {
+    let mut result: [bool; 16] = [false; 16];
+    for idx in 0..16 {
+        result[idx] = a[idx] ^ b[idx];
+    }
+
+    result
+}
 struct Machine {
     lights: Vec<bool>,
     buttons: Vec<Vec<usize>>,
     joltages: Vec<usize>,
+    button_logic: [[bool; 16]; 16],
+    target_lights: [bool; 16],
 }
 
 impl Machine {
@@ -27,20 +66,73 @@ impl Machine {
 
         let joltages: Vec<usize> = captures[3]
             .split(",")
-            .map(|n| n.trim_matches(|c| c == ' ' || c == ',').parse().unwrap())
+            .map(|n| n.trim().parse().unwrap())
             .collect();
 
         Machine {
             lights,
             buttons,
             joltages,
+            button_logic: [[false; 16]; 16],
+            target_lights: [false; 16],
+        }
+    }
+    fn solve_logic(&mut self) -> usize {
+        println!("set logic for machine");
+        println!("num of buttons {}", self.buttons.len());
+        println!("num of lights {}", self.lights.len());
+        let mut buttons_used: Vec<usize> = vec![];
+
+        for button_index in 0..self.buttons.len() {
+            for &light_index in &self.buttons[button_index] {
+                self.button_logic[button_index][light_index] = true;
+                // this button toggles that light we need to light
+                // so consider it
+                if self.lights[light_index]
+                    && buttons_used.iter().find(|&x| *x == button_index) == None
+                {
+                    //
+                }
+            }
+            buttons_used.push(button_index);
+        }
+        for i in 0..self.lights.len() {
+            self.target_lights[i] = self.lights[i];
+        }
+
+        // test combinations of buttons, xor their array lines and compare to target
+        let mut results: Vec<Vec<usize>> = vec![];
+        let perm = gen_2hochn_perm(buttons_used.len());
+        for buttons in perm.iter() {
+            //println!("testing buttons {:?}", buttons);
+            let mut bitline: [bool; 16] = [false; 16];
+            // press buttons and exor result
+            for b in buttons {
+                bitline = xor_bitline(bitline, self.button_logic[*b]);
+            }
+            // is this a result?
+            if bitline == self.target_lights {
+                results.push(buttons.clone());
+            }
+        }
+
+        results.sort_by(|a, b| a.len().cmp(&b.len()));
+        match results.first() {
+            Some(btns) => {
+                println!("solution {:?}", btns);
+                btns.len()
+            }
+            _ => {
+                println!(" no result found");
+                0
+            }
         }
     }
 }
 
 struct Puzzle {
     machines: Vec<Machine>,
-    result1: i64,
+    result1: usize,
     result2: i64,
 }
 
@@ -48,12 +140,25 @@ impl Puzzle {
     fn new(filename: &str) -> Puzzle {
         let contents: String = std::fs::read_to_string(filename).expect("File not found");
         let mut machines: Vec<Machine> = vec![];
+        let mut maxbuttons = 0;
+        let mut maxlights = 0;
+        let mut result1 = 0;
         for line in contents.lines() {
-            machines.push(Machine::new_from_string(line.to_string()));
+            let mut m = Machine::new_from_string(line.to_string());
+            if m.buttons.len() > maxbuttons {
+                maxbuttons = m.buttons.len();
+            }
+            if m.lights.len() > maxlights {
+                maxlights = m.lights.len();
+            }
+            result1 += m.solve_logic();
+            machines.push(m);
         }
+        println!("loaded {} machines", machines.len());
+        println!("max buttons: {}, max lights: {}", maxbuttons, maxlights);
         Puzzle {
             machines,
-            result1: 0,
+            result1: result1,
             result2: 0,
         }
     }
